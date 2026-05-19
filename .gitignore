@@ -1,0 +1,17 @@
+# Compiled class files
+out/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.class
+*.jar
+!lib/*.jar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MySQL connector (can be re-downloaded)
+# lib/
