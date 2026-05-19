@@ -90,7 +90,3 @@ java -cp "out;lib/mysql-connector-j-8.3.0.jar" com.tracker.app.Main
 2. **Dashboard** — Portfolio sidebar, holdings table with live P/L, transaction history
 3. **Trade Dialog** — Stock selector with auto-filled market prices
 4. **Alert Hub** — Severity-coded anomaly cards for held stocks
-
-## 📄 License
-
-This project is for academic/educational purposes.
