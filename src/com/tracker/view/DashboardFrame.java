@@ -17,7 +17,6 @@ import java.util.List;
  *   1. Portfolio selector (left sidebar)
  *   2. Holdings table (center)
  *   3. Recent transactions table (center-bottom)
- *   4. Anomaly alert hub (right panel)
  *
  * Uses BorderLayout and nested panels with proper layout managers — no null layouts.
  */
@@ -37,9 +36,6 @@ public class DashboardFrame extends JFrame {
     private static final Color TABLE_ROW_ALT = new Color(40, 44, 56);
     private static final Color TABLE_ROW     = new Color(34, 38, 48);
     private static final Color BORDER_COLOR  = new Color(50, 55, 68);
-    private static final Color ALERT_HIGH    = new Color(255, 80, 80);
-    private static final Color ALERT_MED     = new Color(255, 180, 60);
-    private static final Color ALERT_LOW     = new Color(80, 200, 120);
 
     // ── Session ────────────────────────────────────────────────
     private final User currentUser;
@@ -49,7 +45,7 @@ public class DashboardFrame extends JFrame {
     private final PortfolioDAO portfolioDAO   = new PortfolioDAO();
     private final HoldingDAO holdingDAO       = new HoldingDAO();
     private final TransactionDAO txnDAO       = new TransactionDAO();
-    private final AlertDAO alertDAO           = new AlertDAO();
+    private final StockDAO stockDAO           = new StockDAO();
 
     // ── UI Components ──────────────────────────────────────────
     private DefaultListModel<Portfolio> portfolioListModel;
@@ -58,9 +54,9 @@ public class DashboardFrame extends JFrame {
     private JTable holdingsTable;
     private DefaultTableModel txnTableModel;
     private JTable txnTable;
-    private JPanel alertsPanel;
     private JLabel totalValueLabel;
     private JLabel totalPLLabel;
+    private Timer refreshTimer;
 
     public DashboardFrame(User user) {
         this.currentUser = user;
@@ -74,6 +70,7 @@ public class DashboardFrame extends JFrame {
 
         initComponents();
         loadPortfolios();
+        startAutoRefresh();
     }
 
     private void initComponents() {
@@ -88,8 +85,6 @@ public class DashboardFrame extends JFrame {
         // ─── CENTER — Holdings + Transactions ──────────────────
         add(createCenterPanel(), BorderLayout.CENTER);
 
-        // ─── RIGHT — Alert Hub ─────────────────────────────────
-        add(createAlertPanel(), BorderLayout.EAST);
     }
 
     // ================================================================
@@ -275,34 +270,6 @@ public class DashboardFrame extends JFrame {
     }
 
     // ================================================================
-    //  RIGHT — Alert Hub
-    // ================================================================
-    private JPanel createAlertPanel() {
-        JPanel alertOuter = new JPanel(new BorderLayout());
-        alertOuter.setPreferredSize(new Dimension(310, 0));
-        alertOuter.setBackground(PANEL_BG);
-        alertOuter.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, BORDER_COLOR));
-
-        JLabel title = new JLabel("  \u26A0  Anomaly Alert Hub");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        title.setForeground(TEXT_PRIMARY);
-        title.setBorder(new EmptyBorder(14, 8, 10, 8));
-        alertOuter.add(title, BorderLayout.NORTH);
-
-        alertsPanel = new JPanel();
-        alertsPanel.setLayout(new BoxLayout(alertsPanel, BoxLayout.Y_AXIS));
-        alertsPanel.setBackground(PANEL_BG);
-
-        JScrollPane scroll = new JScrollPane(alertsPanel);
-        scroll.setBorder(null);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.getViewport().setBackground(PANEL_BG);
-        alertOuter.add(scroll, BorderLayout.CENTER);
-
-        return alertOuter;
-    }
-
-    // ================================================================
     //  DATA LOADING
     // ================================================================
 
@@ -318,12 +285,11 @@ public class DashboardFrame extends JFrame {
         }
     }
 
-    /** Refresh holdings, transactions, and alerts for the selected portfolio. */
+    /** Refresh holdings and transactions for the selected portfolio. */
     private void refreshDashboard() {
         if (selectedPortfolio == null) return;
         loadHoldings();
         loadTransactions();
-        loadAlerts();
     }
 
     /** Populate the holdings table and compute totals. */
@@ -377,84 +343,26 @@ public class DashboardFrame extends JFrame {
         }
     }
 
-    /** Populate the alerts panel with styled alert cards. */
-    private void loadAlerts() {
-        alertsPanel.removeAll();
-        List<Alert> alerts = alertDAO.getAlertsForPortfolio(selectedPortfolio.getPortfolioId());
-
-        if (alerts.isEmpty()) {
-            JLabel empty = new JLabel("No active alerts for your holdings.");
-            empty.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-            empty.setForeground(TEXT_SECONDARY);
-            empty.setBorder(new EmptyBorder(20, 16, 20, 16));
-            alertsPanel.add(empty);
-        } else {
-            for (Alert a : alerts) {
-                alertsPanel.add(createAlertCard(a));
-                alertsPanel.add(Box.createVerticalStrut(6));
-            }
-        }
-
-        alertsPanel.revalidate();
-        alertsPanel.repaint();
-    }
-
-    /** Creates a single alert card widget. */
-    private JPanel createAlertCard(Alert alert) {
-        JPanel card = new JPanel(new BorderLayout(8, 4));
-        card.setBackground(new Color(44, 48, 60));
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 3, 0, 0, getSeverityColor(alert.getSeverity())),
-                new EmptyBorder(10, 12, 10, 12)
-        ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-
-        // Top: Ticker + type badge
-        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        topRow.setOpaque(false);
-
-        JLabel tickerLbl = new JLabel(alert.getTicker());
-        tickerLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tickerLbl.setForeground(TEXT_PRIMARY);
-
-        JLabel typeBadge = new JLabel(" " + alert.getAnomalyType() + " ");
-        typeBadge.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        typeBadge.setForeground(Color.WHITE);
-        typeBadge.setOpaque(true);
-        typeBadge.setBackground(getSeverityColor(alert.getSeverity()));
-
-        JLabel dateLbl = new JLabel(alert.getDateId() != null ? alert.getDateId().toString() : "");
-        dateLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        dateLbl.setForeground(TEXT_SECONDARY);
-
-        topRow.add(tickerLbl);
-        topRow.add(typeBadge);
-        topRow.add(dateLbl);
-        card.add(topRow, BorderLayout.NORTH);
-
-        // Message body
-        JTextArea msgArea = new JTextArea(alert.getMessage());
-        msgArea.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        msgArea.setForeground(TEXT_SECONDARY);
-        msgArea.setBackground(new Color(44, 48, 60));
-        msgArea.setLineWrap(true);
-        msgArea.setWrapStyleWord(true);
-        msgArea.setEditable(false);
-        msgArea.setBorder(new EmptyBorder(4, 0, 0, 0));
-        card.add(msgArea, BorderLayout.CENTER);
-
-        return card;
-    }
-
-    private Color getSeverityColor(int severity) {
-        if (severity >= 4) return ALERT_HIGH;
-        if (severity >= 3) return ALERT_MED;
-        return ALERT_LOW;
-    }
-
     // ================================================================
     //  ACTIONS
     // ================================================================
+
+    /** Updates simulated prices and refreshes displayed P/L every 10 seconds. */
+    private void startAutoRefresh() {
+        refreshTimer = new Timer(10000, e -> {
+            stockDAO.simulateLatestPriceMovement();
+            refreshDashboard();
+        });
+        refreshTimer.start();
+    }
+
+    @Override
+    public void dispose() {
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+        }
+        super.dispose();
+    }
 
     /** Opens the New Trade dialog. */
     private void openTradeDialog() {

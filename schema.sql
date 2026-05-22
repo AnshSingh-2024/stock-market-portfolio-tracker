@@ -6,6 +6,11 @@
 CREATE DATABASE IF NOT EXISTS stock_tracker;
 USE stock_tracker;
 
+-- Remove old anomaly/alert tables if this project was previously initialized
+-- with the earlier anomaly-detection version.
+DROP TABLE IF EXISTS Alert;
+DROP TABLE IF EXISTS Anomaly;
+
 -- -------------------------
 -- 1. User table
 -- -------------------------
@@ -78,29 +83,6 @@ CREATE TABLE IF NOT EXISTS Market_Data (
     FOREIGN KEY (stock_id) REFERENCES Stock(stock_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- -------------------------
--- 7. Anomaly table
--- -------------------------
-CREATE TABLE IF NOT EXISTS Anomaly (
-    anomaly_id  INT PRIMARY KEY AUTO_INCREMENT,
-    stock_id    INT          NOT NULL,
-    date_id     DATE         NOT NULL,
-    type        VARCHAR(50)  NOT NULL,
-    severity    INT          NOT NULL,
-    FOREIGN KEY (stock_id) REFERENCES Stock(stock_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- -------------------------
--- 8. Alert table
--- -------------------------
-CREATE TABLE IF NOT EXISTS Alert (
-    alert_id    INT PRIMARY KEY AUTO_INCREMENT,
-    anomaly_id  INT  NOT NULL,
-    message     TEXT NOT NULL,
-    FOREIGN KEY (anomaly_id) REFERENCES Anomaly(anomaly_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-
 -- ============================================================
 -- SEED DATA
 -- ============================================================
@@ -166,14 +148,3 @@ INSERT INTO Transaction (portfolio_id, stock_id, type, quantity, price, timestam
 (1, 2, 'BUY', 30, 170.00, '2026-05-10 10:00:00'),
 (1, 3, 'BUY', 20, 410.00, '2026-05-11 11:15:00');
 
--- Sample anomaly: Unusual Volume Spike on TSLA
-INSERT INTO Anomaly (stock_id, date_id, type, severity) VALUES
-(2, '2026-05-14', 'Unusual Volume Spike', 4),
-(1, '2026-05-14', 'Price Breakout', 3),
-(3, '2026-05-16', 'Rapid Price Increase', 2);
-
--- Sample alerts linked to anomalies
-INSERT INTO Alert (anomaly_id, message) VALUES
-(1, 'TSLA experienced an unusual volume spike of 110M shares on 2026-05-14, which is 26% above the 5-day average. Possible institutional activity detected.'),
-(2, 'AAPL broke through resistance at $192.00 on 2026-05-14. This price breakout may indicate a strong bullish trend continuation.'),
-(3, 'MSFT surged to $425.80 on 2026-05-16; a rapid price increase of 1.3% in a single session. Monitor for potential pullback.');

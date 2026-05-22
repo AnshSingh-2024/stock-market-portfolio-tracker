@@ -12,9 +12,10 @@ import java.sql.SQLException;
 public class DBConnection {
 
     // Database configuration constants — update these for your environment
-    private static final String URL = "jdbc:mysql://localhost:3306/stock_tracker";
-    private static final String USER = "root";
-    private static final String PASSWORD = "your_password_here"; // Change to your MySQL password
+    private static final String URL = System.getenv().getOrDefault(
+            "DB_URL", "jdbc:mysql://localhost:3306/stock_tracker");
+    private static final String USER = System.getenv().getOrDefault("DB_USER", "root");
+    private static final String PASSWORD = System.getenv().getOrDefault("DB_PASSWORD", "");
 
     // Volatile ensures visibility across threads
     private static volatile DBConnection instance;

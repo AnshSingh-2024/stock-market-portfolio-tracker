@@ -66,4 +66,36 @@ public class StockDAO {
         }
         return 0.0f;
     }
+
+    /**
+     * Simulates market movement by updating the latest Market_Data row for every
+     * stock. This keeps the dashboard's current price and P/L values moving
+     * without needing a real market-data API.
+     *
+     * @return true when at least one stock price was updated
+     */
+    public boolean simulateLatestPriceMovement() {
+        String sql = "UPDATE Market_Data md "
+                   + "JOIN ( "
+                   + "    SELECT stock_id, MAX(date_id) AS latest_date "
+                   + "    FROM Market_Data "
+                   + "    GROUP BY stock_id "
+                   + ") latest ON md.stock_id = latest.stock_id "
+                   + "         AND md.date_id = latest.latest_date "
+                   + "SET md.open_price = md.close_price, "
+                   + "    md.close_price = ROUND(GREATEST(1, md.close_price * (1 + ((RAND() - 0.5) / 20))), 2), "
+                   + "    md.high = GREATEST(md.high, md.close_price), "
+                   + "    md.low = LEAST(md.low, md.close_price), "
+                   + "    md.volume = GREATEST(1000, ROUND(md.volume * (1 + ((RAND() - 0.5) / 8))))";
+
+        try (Connection conn = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.err.println("[StockDAO] Error simulating price movement: " + e.getMessage());
+            return false;
+        }
+    }
 }
