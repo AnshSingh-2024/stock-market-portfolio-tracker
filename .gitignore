@@ -1,6 +1,9 @@
 # Compiled class files
 out/
 
+# Local MySQL server data
+mysql-data/
+
 # IDE files
 .idea/
 *.iml
